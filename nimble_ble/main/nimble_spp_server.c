@@ -288,7 +288,6 @@ static int ble_svc_gatt_handler(uint16_t conn_handle, uint16_t attr_handle, stru
 		CMD_t cmdBuf;
 		cmdBuf.length = 0;
 		for (int i=0;i<ctxt->om->om_len;i++) {
-			if (ctxt->om->om_data[i] == 0x0d) continue;
 			if (cmdBuf.length < PAYLOAD_SIZE) {
 				cmdBuf.payload[cmdBuf.length] = ctxt->om->om_data[i];
 				cmdBuf.length++;
