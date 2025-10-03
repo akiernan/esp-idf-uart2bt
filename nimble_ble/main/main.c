@@ -25,8 +25,6 @@ static const char *TAG = "MAIN";
 QueueHandle_t xQueueSpp;
 QueueHandle_t xQueueUart;
 
-#define RX_BUF_SIZE 128
-
 static void uart_init(void)
 {
 	const uart_config_t uart_config = {
@@ -43,7 +41,7 @@ static void uart_init(void)
 #endif
 	};
 	// We won't use a buffer for sending data.
-	uart_driver_install(CONFIG_UART_NUM, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
+	uart_driver_install(CONFIG_UART_NUM, UART_HW_FIFO_LEN(CONFIG_UART_NUM) * 2, 0, 0, NULL, 0);
 	uart_param_config(CONFIG_UART_NUM, &uart_config);
 	//uart_set_pin(CONFIG_UART_NUM, TXD_PIN, RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
 	uart_set_pin(CONFIG_UART_NUM, CONFIG_UART_TX_GPIO, CONFIG_UART_RX_GPIO, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
