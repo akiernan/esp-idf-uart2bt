@@ -43,10 +43,10 @@ static void uart_init(void)
 #endif
 	};
 	// We won't use a buffer for sending data.
-	uart_driver_install(UART_NUM_1, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
-	uart_param_config(UART_NUM_1, &uart_config);
-	//uart_set_pin(UART_NUM_1, TXD_PIN, RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
-	uart_set_pin(UART_NUM_1, CONFIG_UART_TX_GPIO, CONFIG_UART_RX_GPIO, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+	uart_driver_install(CONFIG_UART_NUM, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
+	uart_param_config(CONFIG_UART_NUM, &uart_config);
+	//uart_set_pin(CONFIG_UART_NUM, TXD_PIN, RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+	uart_set_pin(CONFIG_UART_NUM, CONFIG_UART_TX_GPIO, CONFIG_UART_RX_GPIO, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
 }
 
 static void uart_tx_task(void* pvParameters)
@@ -57,7 +57,7 @@ static void uart_tx_task(void* pvParameters)
 		xQueueReceive(xQueueUart, &cmdBuf, portMAX_DELAY);
 		ESP_LOGI(pcTaskGetName(NULL), "cmdBuf.length=%d", cmdBuf.length);
 		ESP_LOG_BUFFER_HEXDUMP(pcTaskGetName(NULL), cmdBuf.payload, cmdBuf.length, ESP_LOG_INFO);
-		int txBytes = uart_write_bytes(UART_NUM_1, cmdBuf.payload, cmdBuf.length);
+		int txBytes = uart_write_bytes(CONFIG_UART_NUM, cmdBuf.payload, cmdBuf.length);
 		if (txBytes != cmdBuf.length) {
 			ESP_LOGE(pcTaskGetName(NULL), "uart_write_bytes Fail. txBytes=%d cmdBuf.length=%d", txBytes, cmdBuf.length);
 		}
@@ -73,7 +73,7 @@ static void uart_rx_task(void* pvParameters)
 	CMD_t cmdBuf;
 	cmdBuf.spp_event_id = BLE_UART_EVT;
 	while (1) {
-		cmdBuf.length = uart_read_bytes(UART_NUM_1, cmdBuf.payload, PAYLOAD_SIZE, 10 / portTICK_PERIOD_MS);
+		cmdBuf.length = uart_read_bytes(CONFIG_UART_NUM, cmdBuf.payload, PAYLOAD_SIZE, 10 / portTICK_PERIOD_MS);
 		// There is some rxBuf in rx buffer
 		if (cmdBuf.length > 0) {
 			ESP_LOGI(pcTaskGetName(NULL), "cmdBuf.length=%d", cmdBuf.length);

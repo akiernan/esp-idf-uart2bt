@@ -9,6 +9,13 @@ menu "Example Configuration"
 		default 30 if IDF_TARGET_ESP32C6
 		default 27 if IDF_TARGET_ESP32H2
 
+	config UART_NUM
+		int "UART number"
+		range 0 1
+		default 1
+		help
+			UART number for the BLE bridge.
+
 	config UART_TX_GPIO
 		int "UART TX GPIO number"
 		range 0 GPIO_RANGE_MAX
