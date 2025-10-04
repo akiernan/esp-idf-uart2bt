@@ -44,7 +44,9 @@ static void uart_init(void)
 	uart_driver_install(CONFIG_UART_NUM, UART_HW_FIFO_LEN(CONFIG_UART_NUM) * 2, 0, 0, NULL, 0);
 	uart_param_config(CONFIG_UART_NUM, &uart_config);
 	//uart_set_pin(CONFIG_UART_NUM, TXD_PIN, RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+#if CONFIG_UART_TX_GPIO != -1 || CONFIG_UART_RX_GPIO != -1
 	uart_set_pin(CONFIG_UART_NUM, CONFIG_UART_TX_GPIO, CONFIG_UART_RX_GPIO, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+#endif
 }
 
 static void uart_tx_task(void* pvParameters)
