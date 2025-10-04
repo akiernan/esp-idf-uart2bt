@@ -51,7 +51,7 @@ static void uart_init(void)
 
 static void uart_tx_task(void* pvParameters)
 {
-	ESP_LOGI(pcTaskGetName(NULL), "Start using GPIO%d", CONFIG_UART_TX_GPIO);
+	ESP_LOGI(pcTaskGetName(NULL), "Start using UART%d(GPIO%d)", CONFIG_UART_NUM, CONFIG_UART_TX_GPIO);
 	CMD_t cmdBuf;
 	while(1) {
 		xQueueReceive(xQueueUart, &cmdBuf, portMAX_DELAY);
@@ -69,7 +69,7 @@ static void uart_tx_task(void* pvParameters)
 
 static void uart_rx_task(void* pvParameters)
 {
-	ESP_LOGI(pcTaskGetName(NULL), "Start using GPIO%d", CONFIG_UART_RX_GPIO);
+	ESP_LOGI(pcTaskGetName(NULL), "Start using UART%d(GPIO%d)", CONFIG_UART_NUM, CONFIG_UART_RX_GPIO);
 	CMD_t cmdBuf;
 	cmdBuf.spp_event_id = BLE_UART_EVT;
 	while (1) {
