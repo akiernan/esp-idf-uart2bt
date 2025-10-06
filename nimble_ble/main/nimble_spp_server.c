@@ -68,7 +68,7 @@ ble_spp_server_print_conn_desc(struct ble_gap_conn_desc *desc)
 		desc->peer_id_addr.type);
 	//print_addr(desc->peer_id_addr.val);
 	ESP_LOGI(pcTaskGetName(NULL), "conn_itvl=%d conn_latency=%d supervision_timeout=%d "
-		"encrypted=%d authenticated=%d bonded=%d\n",
+		"encrypted=%d authenticated=%d bonded=%d",
 		desc->conn_itvl, desc->conn_latency,
 		desc->supervision_timeout,
 		desc->sec_state.encrypted,
@@ -126,7 +126,7 @@ ble_spp_server_advertise(void)
 
 	rc = ble_gap_adv_set_fields(&fields);
 	if (rc != 0) {
-		ESP_LOGE(pcTaskGetName(NULL), "error setting advertisement data; rc=%d\n", rc);
+		ESP_LOGE(pcTaskGetName(NULL), "error setting advertisement data; rc=%d", rc);
 		return;
 	}
 
@@ -137,7 +137,7 @@ ble_spp_server_advertise(void)
 	rc = ble_gap_adv_start(own_addr_type, NULL, BLE_HS_FOREVER,
 						   &adv_params, ble_spp_server_gap_event, NULL);
 	if (rc != 0) {
-		ESP_LOGE(pcTaskGetName(NULL), "error enabling advertisement; rc=%d\n", rc);
+		ESP_LOGE(pcTaskGetName(NULL), "error enabling advertisement; rc=%d", rc);
 		return;
 	}
 }
@@ -204,7 +204,7 @@ ble_spp_server_gap_event(struct ble_gap_event *event, void *arg)
 		return 0;
 
 	case BLE_GAP_EVENT_MTU:
-		ESP_LOGI(__FUNCTION__, "mtu update event; conn_handle=%d cid=%d mtu=%d\n",
+		ESP_LOGI(__FUNCTION__, "mtu update event; conn_handle=%d cid=%d mtu=%d",
 			event->mtu.conn_handle,
 			event->mtu.channel_id,
 			event->mtu.value);
@@ -212,7 +212,7 @@ ble_spp_server_gap_event(struct ble_gap_event *event, void *arg)
 
 	case BLE_GAP_EVENT_SUBSCRIBE:
 		ESP_LOGI(__FUNCTION__, "subscribe event; conn_handle=%d attr_handle=%d "
-			"reason=%d prevn=%d curn=%d previ=%d curi=%d\n",
+			"reason=%d prevn=%d curn=%d previ=%d curi=%d",
 			event->subscribe.conn_handle,
 			event->subscribe.attr_handle,
 			event->subscribe.reason,
@@ -231,7 +231,7 @@ ble_spp_server_gap_event(struct ble_gap_event *event, void *arg)
 static void
 ble_spp_server_on_reset(int reason)
 {
-	ESP_LOGE(__FUNCTION__, "Resetting state; reason=%d\n", reason);
+	ESP_LOGE(__FUNCTION__, "Resetting state; reason=%d", reason);
 }
 
 static void
@@ -245,7 +245,7 @@ ble_spp_server_on_sync(void)
 	/* Figure out address to use while advertising (no privacy for now) */
 	rc = ble_hs_id_infer_auto(0, &own_addr_type);
 	if (rc != 0) {
-		ESP_LOGE(__FUNCTION__, "error determining address type; rc=%d\n", rc);
+		ESP_LOGE(__FUNCTION__, "error determining address type; rc=%d", rc);
 		return;
 	}
 
@@ -337,7 +337,7 @@ gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg)
 
 	switch (ctxt->op) {
 	case BLE_GATT_REGISTER_OP_SVC:
-		ESP_LOGD(__FUNCTION__, "registered service %s with handle=%d\n",
+		ESP_LOGD(__FUNCTION__, "registered service %s with handle=%d",
 			ble_uuid_to_str(ctxt->svc.svc_def->uuid, buf),
 			ctxt->svc.handle);
 		break;
@@ -351,7 +351,7 @@ gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg)
 		break;
 
 	case BLE_GATT_REGISTER_OP_DSC:
-		ESP_LOGD(__FUNCTION__, "registering descriptor %s with handle=%d\n",
+		ESP_LOGD(__FUNCTION__, "registering descriptor %s with handle=%d",
 			ble_uuid_to_str(ctxt->dsc.dsc_def->uuid, buf),
 			ctxt->dsc.handle);
 		break;
@@ -387,7 +387,7 @@ void nimble_spp_task(void * pvParameters)
 	ESP_LOGI(pcTaskGetName(0), "Start");
 	esp_err_t ret = nimble_port_init();
 	if (ret != ESP_OK) {
-		ESP_LOGE(pcTaskGetName(NULL), "Failed to init nimble %d \n", ret);
+		ESP_LOGE(pcTaskGetName(NULL), "Failed to init nimble %d", ret);
 		return;
 	}
 
