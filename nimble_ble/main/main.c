@@ -55,8 +55,8 @@ static void uart_tx_task(void* pvParameters)
 	CMD_t cmdBuf;
 	while(1) {
 		xQueueReceive(xQueueUart, &cmdBuf, portMAX_DELAY);
-		ESP_LOGI(pcTaskGetName(NULL), "cmdBuf.length=%d", cmdBuf.length);
-		ESP_LOG_BUFFER_HEXDUMP(pcTaskGetName(NULL), cmdBuf.payload, cmdBuf.length, ESP_LOG_INFO);
+		ESP_LOGD(pcTaskGetName(NULL), "cmdBuf.length=%d", cmdBuf.length);
+		ESP_LOG_BUFFER_HEXDUMP(pcTaskGetName(NULL), cmdBuf.payload, cmdBuf.length, ESP_LOG_DEBUG);
 		int txBytes = uart_write_bytes(CONFIG_UART_NUM, cmdBuf.payload, cmdBuf.length);
 		if (txBytes != cmdBuf.length) {
 			ESP_LOGE(pcTaskGetName(NULL), "uart_write_bytes Fail. txBytes=%d cmdBuf.length=%d", txBytes, cmdBuf.length);
@@ -76,8 +76,8 @@ static void uart_rx_task(void* pvParameters)
 		cmdBuf.length = uart_read_bytes(CONFIG_UART_NUM, cmdBuf.payload, PAYLOAD_SIZE, 10 / portTICK_PERIOD_MS);
 		// There is some rxBuf in rx buffer
 		if (cmdBuf.length > 0) {
-			ESP_LOGI(pcTaskGetName(NULL), "cmdBuf.length=%d", cmdBuf.length);
-			ESP_LOG_BUFFER_HEXDUMP(pcTaskGetName(NULL), cmdBuf.payload, cmdBuf.length, ESP_LOG_INFO);
+			ESP_LOGD(pcTaskGetName(NULL), "cmdBuf.length=%d", cmdBuf.length);
+			ESP_LOG_BUFFER_HEXDUMP(pcTaskGetName(NULL), cmdBuf.payload, cmdBuf.length, ESP_LOG_DEBUG);
 			BaseType_t err = xQueueSend(xQueueSpp, &cmdBuf, portMAX_DELAY);
 			if (err != pdTRUE) {
 				ESP_LOGE(pcTaskGetName(NULL), "xQueueSend Fail");

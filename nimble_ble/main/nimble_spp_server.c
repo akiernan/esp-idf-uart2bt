@@ -277,10 +277,10 @@ static int ble_svc_gatt_handler(uint16_t conn_handle, uint16_t attr_handle, stru
 		break;
 
 	case BLE_GATT_ACCESS_OP_WRITE_CHR:
-		ESP_LOGI(__FUNCTION__, "Data received in write event,conn_handle = %x,attr_handle = %x", conn_handle, attr_handle);
-		ESP_LOGI(__FUNCTION__, "Data received in write event,ctxt->om->om_lene = %d", ctxt->om->om_len);
+		ESP_LOGD(__FUNCTION__, "Data received in write event,conn_handle = %x,attr_handle = %x", conn_handle, attr_handle);
+		ESP_LOGD(__FUNCTION__, "Data received in write event,ctxt->om->om_len = %d", ctxt->om->om_len);
 		ESP_LOGD(__FUNCTION__, "Data received in write event,ctxt->om->om_data = [%.*s]",ctxt->om->om_len, ctxt->om->om_data);
-		ESP_LOG_BUFFER_HEXDUMP(__FUNCTION__, ctxt->om->om_data, ctxt->om->om_len, ESP_LOG_INFO);
+		ESP_LOG_BUFFER_HEXDUMP(__FUNCTION__, ctxt->om->om_data, ctxt->om->om_len, ESP_LOG_DEBUG);
 
 		/*
 		[61 62 63 64 65 66 67 0d 0a] to [61 62 63 64 65 66 67 0a]
@@ -293,7 +293,7 @@ static int ble_svc_gatt_handler(uint16_t conn_handle, uint16_t attr_handle, stru
 				cmdBuf.length++;
 			}
 		}
-		ESP_LOG_BUFFER_HEXDUMP(__FUNCTION__, cmdBuf.payload, cmdBuf.length, ESP_LOG_INFO);
+		ESP_LOG_BUFFER_HEXDUMP(__FUNCTION__, cmdBuf.payload, cmdBuf.length, ESP_LOG_DEBUG);
 		BaseType_t err = xQueueSendFromISR(xQueueUart, &cmdBuf, NULL);
 		if (err != pdTRUE) {
 			ESP_LOGE(__FUNCTION__, "xQueueSendFromISR Fail");
@@ -438,7 +438,7 @@ void nimble_spp_task(void * pvParameters)
 	CMD_t cmdBuf;
 	while(1){
 		xQueueReceive(xQueueSpp, &cmdBuf, portMAX_DELAY);
-		ESP_LOGI(pcTaskGetName(NULL), "cmdBuf.spp_event_id=%d", cmdBuf.spp_event_id);
+		ESP_LOGD(pcTaskGetName(NULL), "cmdBuf.spp_event_id=%d", cmdBuf.spp_event_id);
 		if (cmdBuf.spp_event_id == BLE_UART_EVT) {
 
 			for (int i = 0; i <= CONFIG_BT_NIMBLE_MAX_CONNECTIONS; i++) {
