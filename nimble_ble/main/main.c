@@ -16,7 +16,10 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "esp_log.h"
+#include "esp_event.h"
 #include "driver/uart.h"
+
+#include "console_simple_init.h"
 
 #include "spp.h"
 
@@ -96,6 +99,8 @@ void nimble_spp_task(void * pvParameters);
 
 void app_main(void)
 {
+	ESP_ERROR_CHECK(esp_event_loop_create_default());
+
 	// Initialize NVS
 	// It is used to store PHY calibration data
 	esp_err_t ret = nvs_flash_init();
@@ -118,4 +123,10 @@ void app_main(void)
 	xTaskCreate(uart_tx_task, "UART-TX", 1024*4, NULL, 2, NULL);
 	xTaskCreate(uart_rx_task, "UART-RX", 1024*4, NULL, 2, NULL);
 	xTaskCreate(nimble_spp_task, "NIMBLE_SPP", 1024*4, NULL, 2, NULL);
+
+	ESP_ERROR_CHECK(console_cmd_init());     // Initialize console
+	// Register any other plugin command added to your project
+	ESP_ERROR_CHECK(console_cmd_all_register());
+
+	ESP_ERROR_CHECK(console_cmd_start());    // Start console
 }
