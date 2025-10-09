@@ -20,6 +20,8 @@
 #include "driver/uart.h"
 
 #include "console_simple_init.h"
+#include "cmd_nvs.h"
+#include "cmd_system.h"
 
 #include "spp.h"
 
@@ -27,6 +29,38 @@ static const char *TAG = "MAIN";
 
 QueueHandle_t xQueueSpp;
 QueueHandle_t xQueueUart;
+
+#if 0
+static int do_hello_cmd(int argc, char **argv)
+{
+	printf("Hello world!\n");
+	return 0;
+}
+
+esp_err_t console_cmd_hello_register(void)
+{
+	esp_err_t ret;
+
+	const esp_console_cmd_t hello_cmd = {
+		.command = "hello",
+		.help = "say hello",
+		.hint = NULL,
+		.func = do_hello_cmd,
+		.argtable = NULL
+	};
+
+	ret = esp_console_cmd_register(&hello_cmd);
+	if (ret)
+		ESP_LOGE(TAG, "Unable to register hello");
+
+	return ret;
+}
+
+static const console_cmd_plugin_desc_t __attribute__((section(".console_cmd_desc"), used)) PLUGIN = {
+    .name = "console_hello_cmd",
+    .plugin_regd_fn = &console_cmd_hello_register
+};
+#endif
 
 static void uart_init(void)
 {
@@ -46,10 +80,7 @@ static void uart_init(void)
 	// We won't use a buffer for sending data.
 	uart_driver_install(CONFIG_UART_NUM, UART_HW_FIFO_LEN(CONFIG_UART_NUM) * 2, 0, 0, NULL, 0);
 	uart_param_config(CONFIG_UART_NUM, &uart_config);
-	//uart_set_pin(CONFIG_UART_NUM, TXD_PIN, RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
-#if CONFIG_UART_TX_GPIO != -1 || CONFIG_UART_RX_GPIO != -1
 	uart_set_pin(CONFIG_UART_NUM, CONFIG_UART_TX_GPIO, CONFIG_UART_RX_GPIO, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
-#endif
 }
 
 static void uart_tx_task(void* pvParameters)
@@ -97,18 +128,22 @@ static void uart_rx_task(void* pvParameters)
 
 void nimble_spp_task(void * pvParameters);
 
-void app_main(void)
+void initialize_nvs(void)
 {
-	ESP_ERROR_CHECK(esp_event_loop_create_default());
-
-	// Initialize NVS
-	// It is used to store PHY calibration data
 	esp_err_t ret = nvs_flash_init();
+
 	if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
 		ESP_ERROR_CHECK(nvs_flash_erase());
 		ret = nvs_flash_init();
 	}
-	ESP_ERROR_CHECK( ret );
+	ESP_ERROR_CHECK(ret);
+}
+
+void app_main(void)
+{
+	ESP_ERROR_CHECK(esp_event_loop_create_default());
+
+	initialize_nvs();
 
 	// Create Queue
 	xQueueSpp = xQueueCreate(10, sizeof(CMD_t));
@@ -125,6 +160,9 @@ void app_main(void)
 	xTaskCreate(nimble_spp_task, "NIMBLE_SPP", 1024*4, NULL, 2, NULL);
 
 	ESP_ERROR_CHECK(console_cmd_init());     // Initialize console
+	register_system();
+	register_nvs();
+
 	// Register any other plugin command added to your project
 	ESP_ERROR_CHECK(console_cmd_all_register());
 

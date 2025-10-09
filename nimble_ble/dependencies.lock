@@ -1,4 +1,26 @@
 dependencies:
+  appmcu:
+    dependencies:
+    - name: idf
+      version: '>=4.1.0'
+    - name: espressif/console_simple_init
+      version: '*'
+    source:
+      path: /Volumes/src/OriginAcoustics/esp-idf-uart2bt/nimble_ble/components/appmcu
+      type: local
+    version: '*'
+  cmd_nvs:
+    dependencies: []
+    source:
+      path: /Users/alexk/esp/v5.5/esp-idf/examples/system/console/advanced/components/cmd_nvs
+      type: local
+    version: '*'
+  cmd_system:
+    dependencies: []
+    source:
+      path: /Users/alexk/esp/v5.5/esp-idf/examples/system/console/advanced/components/cmd_system
+      type: local
+    version: '*'
   espressif/console_simple_init:
     component_hash: b488b12318f3cb6e0b55b034bd12956926d45f0e1396442e820f8ece4776c306
     dependencies:
@@ -14,8 +36,11 @@ dependencies:
       type: idf
     version: 5.5.1
 direct_dependencies:
+- appmcu
+- cmd_nvs
+- cmd_system
 - espressif/console_simple_init
 - idf
-manifest_hash: f8ac20c857b14150256b9144e7da5de9274ba459f80e5ff8fcc97bea208cdca0
+manifest_hash: 2b71ad8c18232b9fe8b88420ca0a682b12c34fdd73080a4fec1b972a59f27858
 target: esp32c3
 version: 2.0.0
