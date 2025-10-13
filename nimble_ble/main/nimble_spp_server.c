@@ -43,7 +43,7 @@ static uint16_t ble_spp_svc_gatt_read_val_handle;
 static const char *TAG = "SPP";
 
 extern QueueHandle_t xQueueSpp;
-extern QueueHandle_t xQueueUart;
+extern QueueHandle_t uart_tx_queue;
 
 #define RX_BUF_SIZE 128
 
@@ -294,7 +294,7 @@ static int ble_svc_gatt_handler(uint16_t conn_handle, uint16_t attr_handle, stru
 			}
 		}
 		ESP_LOG_BUFFER_HEXDUMP(__FUNCTION__, cmdBuf.payload, cmdBuf.length, ESP_LOG_DEBUG);
-		BaseType_t err = xQueueSendFromISR(xQueueUart, &cmdBuf, NULL);
+		BaseType_t err = xQueueSendFromISR(uart_tx_queue, &cmdBuf, NULL);
 		if (err != pdTRUE) {
 			ESP_LOGE(__FUNCTION__, "xQueueSendFromISR Fail");
 		}

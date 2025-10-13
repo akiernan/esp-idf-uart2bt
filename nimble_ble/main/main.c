@@ -28,11 +28,12 @@
 #include "cmd_system.h"
 
 #include "spp.h"
+#include "zcp.h"
 
 static const char *TAG = "MAIN";
 
 QueueHandle_t xQueueSpp;
-QueueHandle_t xQueueUart;
+QueueHandle_t uart_tx_queue;
 QueueHandle_t xQueueUartEvent;
 
 /*
@@ -50,10 +51,22 @@ QueueHandle_t xQueueUartEvent;
 */
 
 static struct {
+	struct arg_int *mode;
 	struct arg_int *warm;
 	struct arg_int *cool;
 	struct arg_end *end;
 } led_set_raw_args;
+
+void appmcu_led_write_ring_state(uint8_t mode, uint16_t warm, uint16_t cool)
+{
+	CMD_t cmd_buf;
+
+	cmd_buf.length = snprintf((char *)cmd_buf.payload, sizeof cmd_buf.payload,
+				  ZCP(ZCP_COMMAND_LED, ZCP_OPERATION_LED_RING_TRANSITION, "%02" PRIX8 "%04" PRIX16 "%04" PRIX16),
+				  mode, warm, cool);
+	printf("%s\n", cmd_buf.payload);
+	xQueueSend(uart_tx_queue, &cmd_buf, portMAX_DELAY);
+}
 
 static int do_led_set_raw(int argc, char **argv)
 {
@@ -64,10 +77,141 @@ static int do_led_set_raw(int argc, char **argv)
 		return 0;
 	}
 
+	uint8_t mode = led_set_raw_args.mode->ival[0];
 	uint16_t warm = led_set_raw_args.warm->ival[0];
 	uint16_t cool = led_set_raw_args.cool->ival[0];
+	appmcu_led_write_ring_state(mode, warm, cool);
 	return 0;
 }
+
+// Calculate mixing ratio for dual LED controller
+// Returns ratio of warm (3000K) LED intensity (0.0 to 1.0)
+float calculate_led_ratio(float target_temp)
+{
+	const float warm_temp = 3000.0f;
+	const float cool_temp = 5000.0f;
+
+	if (target_temp < warm_temp) {
+		return 1.0f;
+	}
+	if (target_temp > cool_temp) {
+		return 0.0f;
+	}
+
+	float warm_ratio = (cool_temp - target_temp) / (cool_temp - warm_temp);
+	return warm_ratio;
+}
+
+// Convert lightness (0-100) to luminance using Bluetooth Mesh square root method
+float lightness_to_luminance(float lightness)
+{
+	// BLE Mesh uses: luminance = (lightness / 100)^2
+	float normalized = lightness / 100.0f;
+	return normalized * normalized;
+}
+
+// Calculate LED drive values (0-65535) accounting for efficacy and avoiding deadzone
+// warm_efficacy and cool_efficacy are relative values (e.g., 1.0 for reference)
+// Returns 0 on success, -1 if output cannot be achieved
+int calculate_led_drive(float target_temp, float lightness, float warm_efficacy,
+			float cool_efficacy, uint16_t *warm_drive, uint16_t *cool_drive)
+{
+	const float max_drive = 65535.0f;
+	const float deadzone_max = 256.0f; // Deadzone: drive values [0-256]
+
+	// Get color mixing ratio
+	float warm_ratio = calculate_led_ratio(target_temp);
+	float cool_ratio = 1.0f - warm_ratio;
+
+	// Handle off state
+	if (lightness == 0.0f) {
+		*warm_drive = 0;
+		*cool_drive = 0;
+		return 0;
+	}
+
+	// Map lightness to luminance, skipping the deadzone
+	// Deadzone is 0-256 out of 65535, so 0.39% of range
+	// Effective usable range: 256-65535 (65279 steps)
+	float deadzone_fraction = deadzone_max / max_drive; // ~0.0039
+
+	// Remap lightness (0-100) to skip deadzone:
+	// 0% → drive 0 (off)
+	// Small % → drive 257+ (above deadzone)
+	// 100% → drive 65535
+	float luminance;
+	if (lightness <= deadzone_fraction * 100.0f) {
+		// Map lightness linearly into the usable range starting at deadzone_max
+		luminance = (lightness / (deadzone_fraction * 100.0f)) * (deadzone_max / max_drive);
+	} else {
+		// Map the remaining lightness range (deadzone_fraction% to 100%) to (deadzone_max to max_drive)
+		float adjusted_lightness = (lightness - deadzone_fraction * 100.0f) /
+					   (100.0f - deadzone_fraction * 100.0f);
+		luminance = (deadzone_max + adjusted_lightness * (max_drive - deadzone_max)) /
+			    max_drive;
+	}
+
+	// Calculate uncorrected drive values (accounting for efficacy differences)
+	float combined_efficacy = warm_ratio * warm_efficacy + cool_ratio * cool_efficacy;
+
+	if (combined_efficacy == 0.0f) {
+		return -1;
+	}
+
+	float warm_uncorrected =
+		(warm_ratio * warm_efficacy / combined_efficacy) * luminance * max_drive;
+	float cool_uncorrected =
+		(cool_ratio * cool_efficacy / combined_efficacy) * luminance * max_drive;
+
+	// Ensure both values are at least deadzone_max if they're non-zero
+	if (warm_uncorrected > 0.0f && warm_uncorrected < deadzone_max) {
+		warm_uncorrected = deadzone_max;
+	}
+	if (cool_uncorrected > 0.0f && cool_uncorrected < deadzone_max) {
+		cool_uncorrected = deadzone_max;
+	}
+
+	// Convert to uint16_t, rounding
+	*warm_drive = (uint16_t)(warm_uncorrected + 0.5f);
+	*cool_drive = (uint16_t)(cool_uncorrected + 0.5f);
+
+	return 0;
+}
+
+static struct {
+	struct arg_int *mode;
+	struct arg_dbl *lightness;
+	struct arg_dbl *temperature;
+	struct arg_end *end;
+} led_set_state_args;
+
+static int do_led_set_state(int argc, char **argv)
+{
+	int nerrors = arg_parse(argc, argv, (void **)&led_set_state_args);
+
+	if (nerrors != 0) {
+		arg_print_errors(stderr, led_set_state_args.end, argv[0]);
+		return 0;
+	}
+
+	uint8_t mode = led_set_state_args.mode->ival[0];
+	float lightness = led_set_state_args.lightness->dval[0];
+	float temperature = led_set_state_args.temperature->dval[0];
+
+	// Assume cool LED (5000K) is reference with efficacy 1.0
+	// Warm LED (3000K) typically ~5-10% more efficient
+	const float warm_efficacy = 1.08f;
+	const float cool_efficacy = 1.0f;
+
+	uint16_t warm_drive, cool_drive;
+
+	calculate_led_drive(temperature, lightness, warm_efficacy, cool_efficacy, &warm_drive,
+			    &cool_drive);
+	printf("warm_drive = %" PRIX16 ", cool_drive = %" PRIX16 "\n", warm_drive, cool_drive);
+	appmcu_led_write_ring_state(mode, warm_drive, cool_drive);
+	return 0;
+}
+
 static struct {
 	struct arg_int *actual;
 	struct arg_end *end;
@@ -128,7 +272,31 @@ void register_commands_debug(void)
 		.func = do_bt_mesh_convert_lightness_linear_to_actual,
 		.argtable = &bt_mesh_convert_lightness_linear_to_actual_args
 	};
-	ESP_ERROR_CHECK(esp_console_cmd_register(&bt_mesh_convert_lightness_linear_to_actual_args_cmd));
+	ESP_ERROR_CHECK(
+		esp_console_cmd_register(&bt_mesh_convert_lightness_linear_to_actual_args_cmd));
+
+	led_set_raw_args.mode = arg_int1(NULL, NULL, "<mode>", "Transition mode");
+	led_set_raw_args.warm = arg_int1(NULL, NULL, "<warm>", "Warm linear");
+	led_set_raw_args.cool = arg_int1(NULL, NULL, "<cool>", "Cool linear");
+	led_set_raw_args.end = arg_end(1);
+	const esp_console_cmd_t led_set_raw_cmd = { .command = "led_set_raw",
+						    .help = "Set raw LED ring state",
+						    .hint = NULL,
+						    .func = do_led_set_raw,
+						    .argtable = &led_set_raw_args };
+	ESP_ERROR_CHECK(esp_console_cmd_register(&led_set_raw_cmd));
+
+	led_set_state_args.mode = arg_int1(NULL, NULL, "<mode>", "Transition mode");
+	led_set_state_args.lightness = arg_dbl1(NULL, NULL, "<lightness>", "Light lightness");
+	led_set_state_args.temperature =
+		arg_dbl1(NULL, NULL, "<temperature>", "Target temperature");
+	led_set_state_args.end = arg_end(1);
+	const esp_console_cmd_t led_set_state_cmd = { .command = "led_set_state",
+						      .help = "Set LED ring state",
+						      .hint = NULL,
+						      .func = do_led_set_state,
+						      .argtable = &led_set_state_args };
+	ESP_ERROR_CHECK(esp_console_cmd_register(&led_set_state_cmd));
 }
 
 static void uart_init(void)
@@ -159,7 +327,7 @@ static void uart_tx_task(void *pvParameters)
 		 CONFIG_UART_TX_GPIO);
 	CMD_t cmdBuf;
 	while (1) {
-		xQueueReceive(xQueueUart, &cmdBuf, portMAX_DELAY);
+		xQueueReceive(uart_tx_queue, &cmdBuf, portMAX_DELAY);
 		ESP_LOGD(pcTaskGetName(NULL), "cmdBuf.length=%d", cmdBuf.length);
 		ESP_LOG_BUFFER_HEXDUMP(pcTaskGetName(NULL), cmdBuf.payload, cmdBuf.length,
 				       ESP_LOG_DEBUG);
@@ -236,11 +404,14 @@ void app_main(void)
 	// Create Queue
 	xQueueSpp = xQueueCreate(10, sizeof(CMD_t));
 	configASSERT(xQueueSpp);
-	xQueueUart = xQueueCreate(10, sizeof(CMD_t));
-	configASSERT(xQueueUart);
+	uart_tx_queue = xQueueCreate(10, sizeof(CMD_t));
+	configASSERT(uart_tx_queue);
 
 	// Initialize UART
 	uart_init();
+
+	// Force the AppMCU to synchronise
+	uart_write_bytes(CONFIG_UART_NUM, "\r", 1);
 
 	// Start tasks
 	xTaskCreate(uart_tx_task, "UART-TX", 1024 * 4, NULL, 2, NULL);
@@ -254,3 +425,4 @@ void app_main(void)
 
 	ESP_ERROR_CHECK(console_cmd_start()); // Start console
 }
+
