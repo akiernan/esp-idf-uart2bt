@@ -34,6 +34,39 @@ static const char *TAG = "MAIN";
 QueueHandle_t xQueueSpp;
 QueueHandle_t xQueueUart;
 
+/*
+    get-power              Get power - true / false
+    get-power-on-mode      Read LED power-on behaviour mode
+    get-power-on-val       Read LED power-on value
+    get-state              Read current LED state
+    get-user-conf-state    Read current LED state from User Config
+    help                   Print this message or the help of the given subcommand(s)
+    set-power              Set power - true / false
+    set-power-on-mode      Write LED power-on behaviour mode
+    set-power-on-preset    Write LED power-on preset
+    set-raw                Set raw LED channels
+    set-state              Set LED state
+*/
+
+static struct {
+	struct arg_int *warm;
+	struct arg_int *cool;
+	struct arg_end *end;
+} led_set_raw_args;
+
+static int do_led_set_raw(int argc, char **argv)
+{
+	int nerrors = arg_parse(argc, argv, (void **)&led_set_raw_args);
+
+	if (nerrors != 0) {
+		arg_print_errors(stderr, led_set_raw_args.end, argv[0]);
+		return 0;
+	}
+
+	uint16_t warm = led_set_raw_args.warm->ival[0];
+	uint16_t cool = led_set_raw_args.cool->ival[0];
+	return 0;
+}
 static struct {
 	struct arg_int *actual;
 	struct arg_end *end;
@@ -72,7 +105,7 @@ static int do_bt_mesh_convert_lightness_linear_to_actual(int argc, char **argv)
 	return 0;
 }
 
-void register_commands(void)
+void register_commands_debug(void)
 {
 	bt_mesh_convert_lightness_actual_to_linear_args.actual = arg_int1(NULL, NULL, "<actual>", "Light lightness actual");
 	bt_mesh_convert_lightness_actual_to_linear_args.end = arg_end(1);
@@ -205,7 +238,7 @@ void app_main(void)
 	ESP_ERROR_CHECK(console_cmd_init()); // Initialize console
 	register_system();
 	register_nvs();
-	register_commands();
+	register_commands_debug();
 
 	ESP_ERROR_CHECK(console_cmd_start()); // Start console
 }
