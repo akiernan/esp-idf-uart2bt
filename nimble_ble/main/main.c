@@ -33,6 +33,7 @@ static const char *TAG = "MAIN";
 
 QueueHandle_t xQueueSpp;
 QueueHandle_t xQueueUart;
+QueueHandle_t xQueueUartEvent;
 
 /*
     get-power              Get power - true / false
@@ -146,7 +147,7 @@ static void uart_init(void)
 #endif
 	};
 	// We won't use a buffer for sending data.
-	uart_driver_install(CONFIG_UART_NUM, UART_HW_FIFO_LEN(CONFIG_UART_NUM) * 2, 0, 0, NULL, 0);
+	uart_driver_install(CONFIG_UART_NUM, UART_HW_FIFO_LEN(CONFIG_UART_NUM) * 2, 0, 20, &xQueueUartEvent, 0);
 	uart_param_config(CONFIG_UART_NUM, &uart_config);
 	uart_set_pin(CONFIG_UART_NUM, CONFIG_UART_TX_GPIO, CONFIG_UART_RX_GPIO, UART_PIN_NO_CHANGE,
 		     UART_PIN_NO_CHANGE);
@@ -174,16 +175,14 @@ static void uart_tx_task(void *pvParameters)
 	vTaskDelete(NULL);
 }
 
-static void uart_rx_task(void *pvParameters)
+static void appmcu_rx(const uart_event_t *event)
 {
-	ESP_LOGI(pcTaskGetName(NULL), "Start using UART%d(GPIO%d)", CONFIG_UART_NUM,
-		 CONFIG_UART_RX_GPIO);
 	CMD_t cmdBuf;
 	cmdBuf.spp_event_id = BLE_UART_EVT;
-	while (1) {
-		cmdBuf.length = uart_read_bytes(CONFIG_UART_NUM, cmdBuf.payload, PAYLOAD_SIZE,
-						10 / portTICK_PERIOD_MS);
-		// There is some rxBuf in rx buffer
+
+	switch (event->type) {
+	case UART_DATA:
+		cmdBuf.length = uart_read_bytes(CONFIG_UART_NUM, cmdBuf.payload, event->size, portMAX_DELAY);
 		if (cmdBuf.length > 0) {
 			ESP_LOGD(pcTaskGetName(NULL), "cmdBuf.length=%d", cmdBuf.length);
 			ESP_LOG_BUFFER_HEXDUMP(pcTaskGetName(NULL), cmdBuf.payload, cmdBuf.length,
@@ -192,13 +191,26 @@ static void uart_rx_task(void *pvParameters)
 			if (err != pdTRUE) {
 				ESP_LOGE(pcTaskGetName(NULL), "xQueueSend Fail");
 			}
-		} else {
-			// There is no data in rx buufer
-			//ESP_LOGI(pcTaskGetName(NULL), "Read %d", rxBytes);
 		}
-	} // end while
+		break;
+	default:
+		ESP_LOGI(pcTaskGetName(NULL), "UART event type: %d", event->type);
+		break;
+	}
+}
 
-	// Never reach here
+static void uart_rx_task(void *pvParameters)
+{
+	uart_event_t event;
+
+	ESP_LOGI(pcTaskGetName(NULL), "Start using UART%d(GPIO%d)", CONFIG_UART_NUM,
+		 CONFIG_UART_RX_GPIO);
+	for (;;) {
+		if (xQueueReceive(xQueueUartEvent, (void *)&event, (TickType_t)portMAX_DELAY))
+			appmcu_rx(&event);
+	}
+
+	__builtin_unreachable();
 	vTaskDelete(NULL);
 }
 
