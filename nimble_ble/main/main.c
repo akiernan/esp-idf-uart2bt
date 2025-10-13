@@ -1,12 +1,3 @@
-/*	ESP-NimBLE SPP Server Example
-
-	This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-	Unless required by applicable law or agreed to in writing, this
-	software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-	CONDITIONS OF ANY KIND, either express or implied.
-*/
-
 #include <stdio.h>
 #include <inttypes.h>
 
@@ -62,7 +53,8 @@ void appmcu_led_write_ring_state(uint8_t mode, uint16_t warm, uint16_t cool)
 	CMD_t cmd_buf;
 
 	cmd_buf.length = snprintf((char *)cmd_buf.payload, sizeof cmd_buf.payload,
-				  ZCP(ZCP_COMMAND_LED, ZCP_OPERATION_LED_RING_TRANSITION, "%02" PRIX8 "%04" PRIX16 "%04" PRIX16),
+				  ZCP(ZCP_COMMAND_LED, ZCP_OPERATION_LED_RING_TRANSITION,
+				      "%02" PRIX8 "%04" PRIX16 "%04" PRIX16),
 				  mode, warm, cool);
 	printf("%s\n", cmd_buf.payload);
 	xQueueSend(uart_tx_queue, &cmd_buf, portMAX_DELAY);
@@ -224,10 +216,12 @@ static struct {
 
 static int do_bt_mesh_convert_lightness_actual_to_linear(int argc, char **argv)
 {
-	int nerrors = arg_parse(argc, argv, (void **)&bt_mesh_convert_lightness_actual_to_linear_args);
+	int nerrors =
+		arg_parse(argc, argv, (void **)&bt_mesh_convert_lightness_actual_to_linear_args);
 
 	if (nerrors != 0) {
-		arg_print_errors(stderr, bt_mesh_convert_lightness_actual_to_linear_args.end, argv[0]);
+		arg_print_errors(stderr, bt_mesh_convert_lightness_actual_to_linear_args.end,
+				 argv[0]);
 		return 0;
 	}
 
@@ -238,10 +232,12 @@ static int do_bt_mesh_convert_lightness_actual_to_linear(int argc, char **argv)
 
 static int do_bt_mesh_convert_lightness_linear_to_actual(int argc, char **argv)
 {
-	int nerrors = arg_parse(argc, argv, (void **)&bt_mesh_convert_lightness_linear_to_actual_args);
+	int nerrors =
+		arg_parse(argc, argv, (void **)&bt_mesh_convert_lightness_linear_to_actual_args);
 
 	if (nerrors != 0) {
-		arg_print_errors(stderr, bt_mesh_convert_lightness_linear_to_actual_args.end, argv[0]);
+		arg_print_errors(stderr, bt_mesh_convert_lightness_linear_to_actual_args.end,
+				 argv[0]);
 		return 0;
 	}
 
@@ -252,7 +248,8 @@ static int do_bt_mesh_convert_lightness_linear_to_actual(int argc, char **argv)
 
 void register_commands_debug(void)
 {
-	bt_mesh_convert_lightness_actual_to_linear_args.actual = arg_int1(NULL, NULL, "<actual>", "Light lightness actual");
+	bt_mesh_convert_lightness_actual_to_linear_args.actual =
+		arg_int1(NULL, NULL, "<actual>", "Light lightness actual");
 	bt_mesh_convert_lightness_actual_to_linear_args.end = arg_end(1);
 	const esp_console_cmd_t bt_mesh_convert_lightness_actual_to_linear_args_cmd = {
 		.command = "bt_mesh_convert_lightness_actual_to_linear",
@@ -261,9 +258,11 @@ void register_commands_debug(void)
 		.func = do_bt_mesh_convert_lightness_actual_to_linear,
 		.argtable = &bt_mesh_convert_lightness_actual_to_linear_args
 	};
-	ESP_ERROR_CHECK(esp_console_cmd_register(&bt_mesh_convert_lightness_actual_to_linear_args_cmd));
+	ESP_ERROR_CHECK(
+		esp_console_cmd_register(&bt_mesh_convert_lightness_actual_to_linear_args_cmd));
 
-	bt_mesh_convert_lightness_linear_to_actual_args.linear = arg_int1(NULL, NULL, "<linear>", "Light lightness linear");
+	bt_mesh_convert_lightness_linear_to_actual_args.linear =
+		arg_int1(NULL, NULL, "<linear>", "Light lightness linear");
 	bt_mesh_convert_lightness_linear_to_actual_args.end = arg_end(1);
 	const esp_console_cmd_t bt_mesh_convert_lightness_linear_to_actual_args_cmd = {
 		.command = "bt_mesh_convert_lightness_linear_to_actual",
@@ -303,10 +302,8 @@ static void uart_init(void)
 {
 	const uart_config_t uart_config = {
 		//.baud_rate = 115200,
-		.baud_rate = CONFIG_UART_BAUD_RATE,
-		.data_bits = UART_DATA_8_BITS,
-		.parity = UART_PARITY_DISABLE,
-		.stop_bits = UART_STOP_BITS_1,
+		.baud_rate = CONFIG_UART_BAUD_RATE,    .data_bits = UART_DATA_8_BITS,
+		.parity = UART_PARITY_DISABLE,	       .stop_bits = UART_STOP_BITS_1,
 		.flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
 		.source_clk = UART_SCLK_DEFAULT,
@@ -315,7 +312,8 @@ static void uart_init(void)
 #endif
 	};
 	// We won't use a buffer for sending data.
-	uart_driver_install(CONFIG_UART_NUM, UART_HW_FIFO_LEN(CONFIG_UART_NUM) * 2, 0, 20, &xQueueUartEvent, 0);
+	uart_driver_install(CONFIG_UART_NUM, UART_HW_FIFO_LEN(CONFIG_UART_NUM) * 2, 0, 20,
+			    &xQueueUartEvent, 0);
 	uart_param_config(CONFIG_UART_NUM, &uart_config);
 	uart_set_pin(CONFIG_UART_NUM, CONFIG_UART_TX_GPIO, CONFIG_UART_RX_GPIO, UART_PIN_NO_CHANGE,
 		     UART_PIN_NO_CHANGE);
@@ -350,7 +348,8 @@ static void appmcu_rx(const uart_event_t *event)
 
 	switch (event->type) {
 	case UART_DATA:
-		cmdBuf.length = uart_read_bytes(CONFIG_UART_NUM, cmdBuf.payload, event->size, portMAX_DELAY);
+		cmdBuf.length = uart_read_bytes(CONFIG_UART_NUM, cmdBuf.payload, event->size,
+						portMAX_DELAY);
 		if (cmdBuf.length > 0) {
 			ESP_LOGD(pcTaskGetName(NULL), "cmdBuf.length=%d", cmdBuf.length);
 			ESP_LOG_BUFFER_HEXDUMP(pcTaskGetName(NULL), cmdBuf.payload, cmdBuf.length,
@@ -425,4 +424,3 @@ void app_main(void)
 
 	ESP_ERROR_CHECK(console_cmd_start()); // Start console
 }
-
