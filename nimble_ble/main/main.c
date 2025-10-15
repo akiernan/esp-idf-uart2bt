@@ -59,6 +59,14 @@ void appmcu_led_write_ring_state(uint8_t mode, uint16_t warm, uint16_t cool)
 	xQueueSend(uart_tx_queue, &cmd_buf, portMAX_DELAY);
 }
 
+void zcp_sys_reset(void)
+{
+	static const char zcp_sys_reset[] = ZCP(ZCP_COMMAND_SYS, ZCP_OPERATION_SYS_RESET);
+
+	uart_write_bytes(CONFIG_UART_NUM, zcp_sys_reset, sizeof zcp_sys_reset);
+	// read back line
+}
+
 static int do_led_set_raw(int argc, char **argv)
 {
 	int nerrors = arg_parse(argc, argv, (void **)&led_set_raw_args);
@@ -72,6 +80,12 @@ static int do_led_set_raw(int argc, char **argv)
 	uint16_t warm = led_set_raw_args.warm->ival[0];
 	uint16_t cool = led_set_raw_args.cool->ival[0];
 	appmcu_led_write_ring_state(mode, warm, cool);
+	return 0;
+}
+
+static int do_zcp_sys_reset(int argc, char **argv)
+{
+	zcp_sys_reset();
 	return 0;
 }
 
@@ -296,6 +310,7 @@ void register_commands_debug(void)
 						      .argtable = &led_set_state_args };
 	ESP_ERROR_CHECK(esp_console_cmd_register(&led_set_state_cmd));
 
+	ESP_ERROR_CHECK(console_cmd_user_register("zcp_sys_reset", do_zcp_sys_reset));
 }
 
 static void uart_tx_task(void *pvParameters)
@@ -427,6 +442,9 @@ void app_main(void)
 	register_system();
 	register_nvs();
 	register_commands_debug();
+
+	// Register any other plugin command added to your project
+	ESP_ERROR_CHECK(console_cmd_all_register());
 
 	ESP_ERROR_CHECK(console_cmd_start()); // Start console
 }
