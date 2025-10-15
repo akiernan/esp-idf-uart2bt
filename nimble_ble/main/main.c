@@ -350,8 +350,9 @@ static void uart_tx_task(void *pvParameters)
 	vTaskDelete(NULL);
 }
 
-static void appmcu_rx(const uart_event_t *event)
+static void appmcu_rx(const uart_event_t *event, QueueHandle_t uart_event_queue)
 {
+	const char *TAG = pcTaskGetName(NULL);
 	CMD_t cmdBuf;
 	cmdBuf.spp_event_id = BLE_UART_EVT;
 
@@ -360,31 +361,55 @@ static void appmcu_rx(const uart_event_t *event)
 		cmdBuf.length = uart_read_bytes(CONFIG_UART_NUM, cmdBuf.payload, event->size,
 						portMAX_DELAY);
 		if (cmdBuf.length > 0) {
-			ESP_LOGD(pcTaskGetName(NULL), "cmdBuf.length=%d", cmdBuf.length);
-			ESP_LOG_BUFFER_HEXDUMP(pcTaskGetName(NULL), cmdBuf.payload, cmdBuf.length,
-					       ESP_LOG_DEBUG);
+			ESP_LOGD(TAG, "cmdBuf.length=%d", cmdBuf.length);
+			ESP_LOG_BUFFER_HEXDUMP(TAG, cmdBuf.payload, cmdBuf.length, ESP_LOG_DEBUG);
 			BaseType_t err = xQueueSend(xQueueSpp, &cmdBuf, portMAX_DELAY);
-			if (err != pdTRUE) {
-				ESP_LOGE(pcTaskGetName(NULL), "xQueueSend Fail");
-			}
+			if (err != pdTRUE)
+				ESP_LOGE(TAG, "xQueueSend Fail");
 		}
 		break;
+
+	case UART_FIFO_OVF:
+		ESP_LOGW(TAG, "UART FIFO overflow");
+		uart_flush_input(CONFIG_UART_NUM);
+		xQueueReset(uart_event_queue);
+		break;
+
+	case UART_BUFFER_FULL:
+		ESP_LOGW(TAG, "UART RX buffer full");
+		uart_flush_input(CONFIG_UART_NUM);
+		xQueueReset(uart_event_queue);
+		break;
+
+	case UART_BREAK:
+		ESP_LOGI(TAG, "UART break detected");
+		break;
+
+	case UART_PARITY_ERR:
+		ESP_LOGW(TAG, "UART parity error");
+		break;
+
+	case UART_FRAME_ERR:
+		ESP_LOGW(TAG, "UART frame error");
+		break;
+
 	default:
-		ESP_LOGI(pcTaskGetName(NULL), "UART event type: %d", event->type);
+		ESP_LOGE(TAG, "UART event type: %d", event->type);
 		break;
 	}
 }
 
 static void uart_rx_task(void *pvParameters)
 {
-	uart_event_t event;
-	QueueHandle_t xQueueUartEvent = pvParameters;
+	QueueHandle_t uart_event_queue = pvParameters;
 
 	ESP_LOGI(pcTaskGetName(NULL), "Start using UART%d(GPIO%d)", CONFIG_UART_NUM,
 		 CONFIG_UART_RX_GPIO);
 	for (;;) {
-		if (xQueueReceive(xQueueUartEvent, (void *)&event, (TickType_t)portMAX_DELAY))
-			appmcu_rx(&event);
+		uart_event_t event;
+
+		if (xQueueReceive(uart_event_queue, (void *)&event, (TickType_t)portMAX_DELAY))
+			appmcu_rx(&event, uart_event_queue);
 	}
 
 	__builtin_unreachable();
