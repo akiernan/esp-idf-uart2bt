@@ -21,6 +21,30 @@ dependencies:
       path: /Users/alexk/esp/v5.5/esp-idf/examples/system/console/advanced/components/cmd_system
       type: local
     version: '*'
+  espressif/ble_conn_mgr:
+    component_hash: 27aa00708f90ec6d382fd74e19abc3e359b09e9d269e33fae4bcdc03fb6f5df3
+    dependencies:
+    - name: espressif/cmake_utilities
+      registry_url: https://components.espressif.com
+      require: private
+      version: 0.*
+    - name: idf
+      require: private
+      version: '>=4.3'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 0.1.3
+  espressif/cmake_utilities:
+    component_hash: 351350613ceafba240b761b4ea991e0f231ac7a9f59a9ee901f751bddc0bb18f
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=4.1'
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    version: 0.5.3
   espressif/console_simple_init:
     component_hash: b488b12318f3cb6e0b55b034bd12956926d45f0e1396442e820f8ece4776c306
     dependencies:
@@ -39,8 +63,9 @@ direct_dependencies:
 - appmcu
 - cmd_nvs
 - cmd_system
+- espressif/ble_conn_mgr
 - espressif/console_simple_init
 - idf
-manifest_hash: 2b71ad8c18232b9fe8b88420ca0a682b12c34fdd73080a4fec1b972a59f27858
+manifest_hash: db6b2c3e2c9e10cfcd42fbec8daad0870b32d3be96d3f82e2e1836894644a884
 target: esp32c3
 version: 2.0.0

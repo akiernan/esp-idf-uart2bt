@@ -16,8 +16,9 @@ dependencies:
   #   public: true
   espressif/console_simple_init: ^1.1.0
   appmcu:
-    path: "../components/appmcu"
+    path: ../components/appmcu
   cmd_nvs:
     path: ${IDF_PATH}/examples/system/console/advanced/components/cmd_nvs
   cmd_system:
     path: ${IDF_PATH}/examples/system/console/advanced/components/cmd_system
+  espressif/ble_conn_mgr: ^0.1.3
