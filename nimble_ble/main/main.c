@@ -67,6 +67,14 @@ void zcp_sys_reset(void)
 	// read back line
 }
 
+void zcp_sys_factory_reset(void)
+{
+	static const char zcp_sys_factory_reset[] = ZCP(ZCP_COMMAND_SYS, ZCP_OPERATION_SYS_FACTORY_RESET);
+
+	uart_write_bytes(CONFIG_UART_NUM, zcp_sys_factory_reset, sizeof zcp_sys_factory_reset - 1);
+	// read back line
+}
+
 static int do_led_set_raw(int argc, char **argv)
 {
 	int nerrors = arg_parse(argc, argv, (void **)&led_set_raw_args);
@@ -86,6 +94,12 @@ static int do_led_set_raw(int argc, char **argv)
 static int do_zcp_sys_reset(int argc, char **argv)
 {
 	zcp_sys_reset();
+	return 0;
+}
+
+static int do_zcp_sys_factory_reset(int argc, char **argv)
+{
+	zcp_sys_factory_reset();
 	return 0;
 }
 
@@ -311,6 +325,7 @@ void register_commands_debug(void)
 	ESP_ERROR_CHECK(esp_console_cmd_register(&led_set_state_cmd));
 
 	ESP_ERROR_CHECK(console_cmd_user_register("zcp_sys_reset", do_zcp_sys_reset));
+	ESP_ERROR_CHECK(console_cmd_user_register("zcp_sys_factory_reset", do_zcp_sys_factory_reset));
 }
 
 static void uart_tx_task(void *pvParameters)
