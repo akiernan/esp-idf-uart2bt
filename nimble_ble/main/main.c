@@ -25,7 +25,6 @@ static const char *TAG = "MAIN";
 
 QueueHandle_t xQueueSpp;
 QueueHandle_t uart_tx_queue;
-QueueHandle_t xQueueUartEvent;
 
 /*
     get-power              Get power - true / false
@@ -296,27 +295,7 @@ void register_commands_debug(void)
 						      .func = do_led_set_state,
 						      .argtable = &led_set_state_args };
 	ESP_ERROR_CHECK(esp_console_cmd_register(&led_set_state_cmd));
-}
 
-static void uart_init(void)
-{
-	const uart_config_t uart_config = {
-		//.baud_rate = 115200,
-		.baud_rate = CONFIG_UART_BAUD_RATE,    .data_bits = UART_DATA_8_BITS,
-		.parity = UART_PARITY_DISABLE,	       .stop_bits = UART_STOP_BITS_1,
-		.flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
-		.source_clk = UART_SCLK_DEFAULT,
-#else
-		.source_clk = UART_SCLK_APB,
-#endif
-	};
-	// We won't use a buffer for sending data.
-	uart_driver_install(CONFIG_UART_NUM, UART_HW_FIFO_LEN(CONFIG_UART_NUM) * 2, 0, 20,
-			    &xQueueUartEvent, 0);
-	uart_param_config(CONFIG_UART_NUM, &uart_config);
-	uart_set_pin(CONFIG_UART_NUM, CONFIG_UART_TX_GPIO, CONFIG_UART_RX_GPIO, UART_PIN_NO_CHANGE,
-		     UART_PIN_NO_CHANGE);
 }
 
 static void uart_tx_task(void *pvParameters)
@@ -369,6 +348,7 @@ static void appmcu_rx(const uart_event_t *event)
 static void uart_rx_task(void *pvParameters)
 {
 	uart_event_t event;
+	QueueHandle_t xQueueUartEvent = pvParameters;
 
 	ESP_LOGI(pcTaskGetName(NULL), "Start using UART%d(GPIO%d)", CONFIG_UART_NUM,
 		 CONFIG_UART_RX_GPIO);
@@ -379,6 +359,40 @@ static void uart_rx_task(void *pvParameters)
 
 	__builtin_unreachable();
 	vTaskDelete(NULL);
+}
+
+static void uart_init(void)
+{
+	const uart_config_t uart_config = {
+		//.baud_rate = 115200,
+		.baud_rate = CONFIG_UART_BAUD_RATE,    .data_bits = UART_DATA_8_BITS,
+		.parity = UART_PARITY_DISABLE,	       .stop_bits = UART_STOP_BITS_1,
+		.flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+		.source_clk = UART_SCLK_DEFAULT,
+#else
+		.source_clk = UART_SCLK_APB,
+#endif
+	};
+	QueueHandle_t xQueueUartEvent;
+
+	// We won't use a buffer for sending data.
+	uart_driver_install(CONFIG_UART_NUM, UART_HW_FIFO_LEN(CONFIG_UART_NUM) * 2, 0, 20,
+			    &xQueueUartEvent, 0);
+	uart_param_config(CONFIG_UART_NUM, &uart_config);
+	uart_set_pin(CONFIG_UART_NUM, CONFIG_UART_TX_GPIO, CONFIG_UART_RX_GPIO, UART_PIN_NO_CHANGE,
+		     UART_PIN_NO_CHANGE);
+
+	uart_tx_queue = xQueueCreate(10, sizeof(CMD_t));
+	configASSERT(uart_tx_queue);
+
+	// Force the AppMCU to synchronise
+	uart_write_bytes(CONFIG_UART_NUM, ZCP_FRAMING_END, sizeof(ZCP_FRAMING_END) - 1);
+	uart_write_bytes(CONFIG_UART_NUM, ZCP_SYS_SET_ACK_ON, sizeof(ZCP_SYS_SET_ACK_ON) - 1);
+
+	// Start tasks
+	xTaskCreate(uart_tx_task, "UART-TX", 1024 * 4, NULL, 2, NULL);
+	xTaskCreate(uart_rx_task, "UART-RX", 1024 * 4, xQueueUartEvent, 2, NULL);
 }
 
 void nimble_spp_task(void *pvParameters);
@@ -403,18 +417,10 @@ void app_main(void)
 	// Create Queue
 	xQueueSpp = xQueueCreate(10, sizeof(CMD_t));
 	configASSERT(xQueueSpp);
-	uart_tx_queue = xQueueCreate(10, sizeof(CMD_t));
-	configASSERT(uart_tx_queue);
 
 	// Initialize UART
 	uart_init();
 
-	// Force the AppMCU to synchronise
-	uart_write_bytes(CONFIG_UART_NUM, "\r", 1);
-
-	// Start tasks
-	xTaskCreate(uart_tx_task, "UART-TX", 1024 * 4, NULL, 2, NULL);
-	xTaskCreate(uart_rx_task, "UART-RX", 1024 * 4, NULL, 2, NULL);
 	xTaskCreate(nimble_spp_task, "NIMBLE_SPP", 1024 * 4, NULL, 2, NULL);
 
 	ESP_ERROR_CHECK(console_cmd_init()); // Initialize console
